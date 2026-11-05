@@ -1,0 +1,44 @@
+name: Release quality gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      ml_report_path:
+        description: 'Path to a verified NASA ML test_metrics.json in the runner workspace'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-api.txt
+            packages/ml/pyproject.toml
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Evaluate release evidence
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FAULTWISE_LLM_PROVIDER: gemini
+          ML_REPORT_PATH: ${{ inputs.ml_report_path }}
+        run: |
+          args=(--baseline backend/evaluation/baselines/ci-v1.json --output-dir artifacts/evaluation --live)
+          if [ -n "$ML_REPORT_PATH" ]; then args+=(--ml-report "$ML_REPORT_PATH"); fi
+          python -m backend.evaluation.cli run "${args[@]}"
+          python -m backend.evaluation.release_gate artifacts/evaluation/evaluation-*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-evaluation
+          path: artifacts/evaluation/evaluation-*.json
+          if-no-files-found: ignore
+          retention-days: 14

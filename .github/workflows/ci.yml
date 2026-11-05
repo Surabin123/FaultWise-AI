@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-api.txt
+            packages/ml/pyproject.toml
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+      - name: Deterministic quality evaluation
+        run: |
+          python -m backend.evaluation.cli run --baseline backend/evaluation/baselines/ci-v1.json --output-dir artifacts/evaluation
+          python -m backend.evaluation.ci_gate artifacts/evaluation/evaluation-*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deterministic-evaluation
+          path: artifacts/evaluation/evaluation-*.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-api.txt
+            packages/ml/pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install -r requirements-dev.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  package:
+    needs: [python, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application image
+        run: docker build --tag faultwise-ai:${{ github.sha }} .
+      - name: Save image artifact
+        run: docker save faultwise-ai:${{ github.sha }} | gzip > faultwise-ai-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faultwise-ai-image
+          path: faultwise-ai-image.tar.gz
+          retention-days: 7

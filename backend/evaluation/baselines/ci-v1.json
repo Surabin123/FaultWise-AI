@@ -1,0 +1,15 @@
+{
+  "run_id": "synthetic-golden-v1-reviewed-baseline",
+  "evaluation_dataset_version": "faultwise-synthetic-golden-v1",
+  "evaluation_config": {"categories": "all"},
+  "metrics": {
+    "abstention": {"missed_abstention_rate": 0.0},
+    "evidence_reference_validity": 1.0,
+    "grounded_claim_rate_structural": 1.0,
+    "schema_validity": 1.0,
+    "unsupported_claim_rate_rule": 0.0
+  },
+  "failed_cases": [],
+  "ml_metrics": null,
+  "provenance": "Synthetic golden v1 local evaluation: 19/19 cases passed. No NASA benchmark or live Gemini claim."
+}

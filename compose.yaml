@@ -1,0 +1,16 @@
+services:
+  faultwise:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      FAULTWISE_DATA_DIR: /app/data
+      FAULTWISE_MODEL_PATH: /app/artifacts/ml/faultwise_model.joblib
+      FAULTWISE_REPORT_DIR: /app/artifacts/reports
+      FAULTWISE_EVALUATION_DIR: /app/artifacts/evaluation
+      FAULTWISE_ML_METRICS_PATH: /app/artifacts/ml/test_metrics.json
+      FAULTWISE_LLM_PROVIDER: ${FAULTWISE_LLM_PROVIDER:-none}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - ./data:/app/data:ro
+      - ./artifacts:/app/artifacts
